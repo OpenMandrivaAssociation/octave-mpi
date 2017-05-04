@@ -1,0 +1,301 @@
+# https://sourceforge.net/p/octave/mpi/ci/fd2c0af62c78272780b6c1943331144065f26a10/
+# 4.1 compatibility fixes
+#
+#
+#
+--- a
++++ b/inst/test_mpi_send_receive.m
+@@ -0,0 +1,136 @@
++## Copyright (C) 2009 Riccardo Corradini <riccardocorradini@yahoo.it>
++## Copyright (C) 2012 Carlo de Falco
++## Copyright (C) 2015 Alexander Barth
++##
++## This program is free software; you can redistribute it and/or modify it under
++## the terms of the GNU General Public License as published by the Free Software
++## Foundation; either version 3 of the License, or (at your option) any later
++## version.
++##
++## This program is distributed in the hope that it will be useful, but WITHOUT
++## ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++## FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
++## details.
++##
++## You should have received a copy of the GNU General Public License along with
++## this program; if not, see <http://www.gnu.org/licenses/>.
++
++## -*- texinfo -*-
++## @deftypefn {Function File} {} = test_mpi_send_receive ()
++## This function test the sending and receiving various data types over MPI.
++## The master (rank = 0) will send a message to all processes and the results 
++## will be checked.
++## To run this test, set the variables HOSTFILE and NUMBER_OF_MPI_NODES (you 
++## need at least two nodes) to appropriate values, then type the following 
++## command in your shell:
++## @example
++## mpirun --hostfile $HOSTFILE -np $NUMBER_OF_MPI_NODES octave --eval 'pkg load mpi; test_mpi_send_receive ()'
++## @end example
++## @seealso{hello2dimmat,helloworld,hellostruct,hellocell,hellosparsemat,mc_example,montecarlo,Pi} 
++## @end deftypefn
++
++function test_mpi_send_receive ()
++
++  MPI_Init ();
++  CW = MPI_Comm_Load ("NEWORLD");
++
++  my_rank = MPI_Comm_rank (CW);
++  p = MPI_Comm_size (CW);
++
++  TAG = 1;
++
++  message = 123.4;
++  send_receive_check(message, "double scalar")
++
++  message = single(123.4);
++  send_receive_check (message, "single scalar")
++
++  message = true;
++  send_receive_check (message, "boolean")
++
++  message = "a message";
++  send_receive_check (message, "string")
++
++  message = magic(5);
++  send_receive_check (message,"2d array")
++
++  message = cat (3, magic (5), 2 * magic (5));
++  send_receive_check (message, "3d array")
++
++  message = struct ("f1", 1, "f2", 25);
++  send_receive_check(message,"scalar struct")
++
++  message = struct ("f1", {1 3; 2 4}, "f2", 25);
++  send_receive_check(message,"struct")
++
++  does not work jet (10/06/2015)
++  message = {"this","is","a","test"};
++  send_receive_check(message,"cell")
++
++  clear message
++  message.f1 = 123;
++  message.f2.g1 = "string";
++  message.f2.g2 = magic (3);
++  message.f3 = {"a", "b", "c"};
++  send_receive_check (message, "complex struct")
++  
++
++  MPI_Finalize ();
++
++
++
++  function send_receive_check (message, type)
++
++    ## send to single node
++    ## need at least two nodes
++
++    if p >= 2
++      if my_rank == 0
++        ## send message to rank 1
++        info = MPI_Send (message, 1, TAG, CW);
++      endif
++      
++      if my_rank == 1
++        [messagerec, info] = MPI_Recv (0, TAG, CW);
++
++        test = sprintf ("%s (rank %d):",type,my_rank);
++        
++        if isequal (message,messagerec)
++          printf ("%50s [ OK ]\n",test)
++        else
++          printf ("%50s [FAIL]\n",test)
++          message,messagerec
++        endif
++      endif
++    endif
++
++    info = MPI_Barrier (CW);
++
++    TAG = TAG+1;
++
++    ## broadcasting
++
++    if my_rank == 0
++      ## send message to all nodes (including master)
++      info = MPI_Send (message, 0:p-1, TAG, CW);
++    endif
++
++    ## receive from master
++    [messagerec, info] = MPI_Recv (0, TAG, CW);
++    
++    test = sprintf ("broadcast %s (rank %d):",type,my_rank);
++
++    if isequal (message,messagerec)
++      printf ("%50s [ OK ]\n",test)
++    else
++      printf ("%50s [FAIL]\n",test)
++      message,messagerec
++    endif
++
++    TAG = TAG+1;
++
++    info = MPI_Barrier (CW);
++  endfunction
++
++endfunction
++
+--- a/src/MPI_Send.cc
++++ b/src/MPI_Send.cc
+@@ -1,6 +1,6 @@
+ // Copyright (C) 2009 Riccardo Corradini <riccardocorradini@yahoo.it>
+ // Copyright (C) 2009 VZLU Prague
+-// Copyright (C) 2012, 2013, 2014 Carlo de Falco
++// Copyright (C) 2012, 2013, 2014, 2015 Carlo de Falco
+ //
+ // This program is free software; you can redistribute it and/or modify it under
+ // the terms of the GNU General Public License as published by the Free Software
+@@ -78,7 +78,7 @@
+   Deco[1] = imag (d);
+ 
+   const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();
+-  for (octave_idx_type i = 0; i < rankrec.nelem (); i++)
++  for (octave_idx_type i = 0; i < rankrec.numel (); i++)
+     {
+       info = MPI_Send 
+         (&t_id, 1, MPI_INT, rankrec_ptr[i], tanktag[0], comm);
+@@ -106,7 +106,7 @@
+   tanktag[1] = mytag+1;
+   
+   const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();
+-  for (octave_idx_type  i = 0; i< rankrec.nelem(); i++)
++  for (octave_idx_type  i = 0; i< rankrec.numel(); i++)
+     {
+       info = MPI_Send 
+         (&t_id, 1, MPI_INT, rankrec_ptr[i], tanktag[0], comm);
+@@ -140,11 +140,11 @@
+   d[1]= range.limit ();
+   d[2]= range.inc ();
+ 
+-  int nele = range.nelem ();
++  int nele = range.numel ();
+   int info = MPI_SUCCESS;
+ 
+   const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();
+-  for (octave_idx_type i = 0; i< rankrec.nelem (); i++)
++  for (octave_idx_type i = 0; i< rankrec.numel (); i++)
+     {
+       info = MPI_Send 
+         (&t_id, 1, MPI_INT, rankrec_ptr[i], tanktag[0], comm);
+@@ -191,7 +191,7 @@
+   if (TSnd == TMPI && myOv.T1  && myOv.T2 )                             \
+     {                                                                   \
+       A1 myNDA = myOv.A2;                                               \
+-      nitem = myNDA.nelem ();                                           \
++      nitem = myNDA.numel ();                                           \
+       dv = myNDA.dims ();                                               \
+       nd = myNDA.ndims ();                                              \
+       OCTAVE_LOCAL_BUFFER(int, dimV, nd);                               \
+@@ -202,7 +202,7 @@
+       T3 * LBNDA = myNDA.fortran_vec ();                                \
+                                                                         \
+       const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();      \
+-      for (octave_idx_type  i = 0; i < rankrec.nelem (); i++)           \
++      for (octave_idx_type  i = 0; i < rankrec.numel (); i++)           \
+         {                                                               \
+           info = MPI_Send                                               \
+             (&t_id, 1, MPI_INT, rankrec_ptr[i], tanktag[0], comm);      \
+@@ -230,7 +230,7 @@
+   if (TSnd == TMPI && myOv.T1 && myOv.T2)                               \
+     {                                                                   \
+       A1 myNDA = myOv.A2;                                               \
+-      nitem = myNDA.nelem ();                                           \
++      nitem = myNDA.numel ();                                           \
+       OCTAVE_LOCAL_BUFFER(T3, LBNDA1, nitem);                           \
+       OCTAVE_LOCAL_BUFFER(T3, LBNDA2, nitem);                           \
+                                                                         \
+@@ -249,7 +249,7 @@
+                                                                         \
+                                                                         \
+       const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();      \
+-      for (octave_idx_type  i = 0; i< rankrec.nelem (); i++)            \
++      for (octave_idx_type  i = 0; i< rankrec.numel (); i++)            \
+         {                                                               \
+           info = MPI_Send                                               \
+             (&t_id, 1, MPI_INT, rankrec_ptr[i], tanktag[0], comm);      \
+@@ -366,7 +366,7 @@
+         }                                                               \
+                                                                         \
+       const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();      \
+-      for (octave_idx_type i = 0; i < rankrec.nelem (); i++)            \
++      for (octave_idx_type i = 0; i < rankrec.numel (); i++)            \
+         {                                                               \
+           info = MPI_Send                                               \
+             (&t_id, 1, MPI_INT, rankrec_ptr[i], tanktag[0], comm);      \
+@@ -424,7 +424,7 @@
+         }
+ 
+       const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();
+-      for (octave_idx_type i = 0; i < rankrec.nelem (); i++)
++      for (octave_idx_type i = 0; i < rankrec.numel (); i++)
+         {
+           info = MPI_Send 
+             (&t_id, 1, MPI_INT, rankrec_ptr[i], tanktag[0], comm);
+@@ -469,7 +469,7 @@
+   strcpy (i8, oi8.c_str ());
+ 
+   const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();
+-  for (octave_idx_type i = 0; i < rankrec.nelem (); i++)
++  for (octave_idx_type i = 0; i < rankrec.numel (); i++)
+     {
+       info = MPI_Send 
+         (&t_id, 1, MPI_INT, rankrec_ptr[i], mytag, comm);
+@@ -520,7 +520,7 @@
+ 
+   // Now start the big loop
+   const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();
+-  for (octave_idx_type i = 0; i < rankrec.nelem (); i++)
++  for (octave_idx_type i = 0; i < rankrec.numel (); i++)
+     {
+       info = MPI_Send (&t_id, 1, MPI_INT, rankrec_ptr[i],
+                        tanktag[0], comm);
+@@ -579,7 +579,7 @@
+ 
+   // Now we start the big loop
+   const octave_idx_type *rankrec_ptr = rankrec.fortran_vec ();
+-  for (octave_idx_type i = 0; i < rankrec.nelem (); i++)
++  for (octave_idx_type i = 0; i < rankrec.numel (); i++)
+     {
+       info = MPI_Send (&t_id, 1, MPI_INT, rankrec_ptr[i], 
+                        tanktag[0], comm);
+--- a/src/simple.h
++++ b/src/simple.h
+@@ -39,12 +39,16 @@
+   
+   const std::string name;
+   MPI_Comm Comm_Value;
++#if defined (DEFINE_OCTAVE_ALLOCATOR)
+   DECLARE_OCTAVE_ALLOCATOR;
++#endif
+   DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA;
+   
+ };
+ 
++#if defined (DEFINE_OCTAVE_ALLOCATOR)
+ DEFINE_OCTAVE_ALLOCATOR (simple);
++#endif
+ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (simple, "simple", "simple");
+ 
+ static bool simple_type_loaded = false;
+--- a/src/simpleop.h
++++ b/src/simpleop.h
+@@ -60,7 +60,9 @@
+   DECLARE_OV_TYPEID_FUNCTIONS_AND_DATA
+ };
+ 
+-DEFINE_OCTAVE_ALLOCATOR (simpleop);
++#if defined (DEFINE_OCTAVE_ALLOCATOR)
++DEFINE_OCTAVE_ALLOCATOR (simpleop);
++#endif
+ DEFINE_OV_TYPEID_FUNCTIONS_AND_DATA (simpleop, "simpleop", "simpleop");
+ 
+ static bool simpleop_type_loaded = false;
+
+
