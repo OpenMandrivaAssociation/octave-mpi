@@ -1,0 +1,303 @@
+--- a/src/MPI_Barrier.cc
++++ b/src/MPI_Barrier.cc
+@@ -56,15 +56,11 @@ an error occurs. \n\
+       else
+         {	       
+           MPI_Comm comm = ov_mpi_comm (args(0));
+-          if (! error_state)
+-            {
+-              int my_size;
+-              int info = MPI_Barrier (comm);
++        
++	       int my_size;
++          int info = MPI_Barrier (comm);
+               
+-              results(0) = octave_value (info);
+-            }
+-          else
+-            print_usage ();
++          results(0) = octave_value (info);
+         }
+     }
+    
+--- a/src/MPI_Comm_rank.cc
++++ b/src/MPI_Comm_rank.cc
+@@ -49,17 +49,13 @@ SEE ALSO: MPI_Comm_size\n\
+       if (is_octave_mpi_communicator (args(0)))
+         {
+           MPI_Comm comm = ov_mpi_comm (args(0));
+-          if (! error_state)
+-            {
+-              int my_rank;
+-              int info = MPI_Comm_rank (comm, &my_rank);
+-              if (nargout > 1)
+-                results(1) = info;
+               
+-              results(0) = my_rank;
+-            }
+-          else
+-            print_usage ();
++	  int my_rank;
++          int info = MPI_Comm_rank (comm, &my_rank);
++          if (nargout > 1)
++            results(1) = info;
++              
++          results(0) = my_rank;
+         }
+       else
+         error ("MPI_Comm_rank: Please enter octave comunicator object");
+--- a/src/MPI_Comm_size.cc
++++ b/src/MPI_Comm_size.cc
+@@ -68,16 +68,12 @@ SEE ALSO: MPI_Comm_rank\n\
+       else
+         {
+           MPI_Comm comm = ov_mpi_comm (args(0));          
+-          if (! error_state)
+-            {
+-              int my_size;
+-              int info = MPI_Comm_size (comm, &my_size);
+-              if (nargout > 1)
+-                results(1) = info;
+-              results(0) = my_size;
+-            }
+-          else
+-            print_usage ();
++        
++	  int my_size;
++          int info = MPI_Comm_size (comm, &my_size);
++          if (nargout > 1)
++            results(1) = info;
++          results(0) = my_size;
+         }
+     }
+   return results;
+--- a/src/MPI_Iprobe.cc
++++ b/src/MPI_Iprobe.cc
+@@ -65,18 +65,13 @@ Nonblocking test for an MPI message.\n\
+           MPI_Comm comm = ov_mpi_comm (args(2));
+           int src = args(0).int_value();
+           int tag = args(1).int_value();
+-          if (! error_state)
+-            {
+-              int flag;
+-              MPI_Status stat = {0, 0, 0, 0};    
+-              int info = MPI_Iprobe (src, tag, comm, &flag, &stat);
+-              comm = NULL;
+-              results(0) = flag;
+-              results(1) = put_MPI_Stat (stat);
+-              results(2) = info;
+-            }
+-          else
+-            print_usage ();
++          int flag;
++          MPI_Status stat = {0, 0, 0, 0};    
++          int info = MPI_Iprobe (src, tag, comm, &flag, &stat);
++          comm = NULL;
++          results(0) = flag;
++          results(1) = put_MPI_Stat (stat);
++          results(2) = info;
+         }
+     }
+   return results;
+--- a/src/MPI_Probe.cc
++++ b/src/MPI_Probe.cc
+@@ -57,14 +57,11 @@ Blocking test for a message.\n\
+           int src = args(0).int_value ();    
+           int tag = args(1).int_value ();    
+           
+-          if (! error_state)
+-            {
+-              MPI_Status stat = {0, 0, 0, 0};
+-              int info = MPI_Probe (src, tag, comm, &stat);
+-              comm= NULL;
+-              results(0) = put_MPI_Stat (stat);
+-              results(1) = info;
+-            }
++          MPI_Status stat = {0, 0, 0, 0};
++          int info = MPI_Probe (src, tag, comm, &stat);
++          comm= NULL;
++          results(0) = put_MPI_Stat (stat);
++          results(1) = info;
+         }
+       else
+         {
+--- a/src/MPI_Recv.cc
++++ b/src/MPI_Recv.cc
+@@ -25,8 +25,8 @@
+ #include <octave/load-save.h>
+ #include <octave/ls-oct-binary.h>
+ 
+-using namespace octave;
+-static const load_save_format frmt = load_save_system::BINARY;
++//using namespace octave;
++static const octave::load_save_format frmt = octave::load_save_system::BINARY;
+ static octave::mach_info::float_format flt_fmt = octave::mach_info::native_float_format ();
+ static bool swap = false;
+ static const std::ios::openmode imode = std::ios::in | std::ios::binary;
+@@ -60,50 +60,47 @@ MPI_Comm_Load function \n\
+     {
+       int source = args(0).int_value ();    
+       int mytag = args(1).int_value ();
+-      if (! error_state)
++      if (is_octave_mpi_communicator (args(2)))
+         {
+-          if (is_octave_mpi_communicator (args(2)))
+-            {
+-              MPI_Comm comm = ov_mpi_comm (args(2));
+-              int num;
+-              MPI_Status status;
++          MPI_Comm comm = ov_mpi_comm (args(2));
++          int num;
++          MPI_Status status;
+ 
+-              MPI_Probe (source, mytag, comm, &status);
+-              MPI_Get_count (&status, MPI_CHAR, &num);
+-              char buffer[num];
++          MPI_Probe (source, mytag, comm, &status);
++          MPI_Get_count (&status, MPI_CHAR, &num);
++          char buffer[num];
+               
+-              int info =
+-                MPI_Recv (buffer, num, MPI_CHAR, source,
+-                          mytag, comm, &status);
++          int info =
++            MPI_Recv (buffer, num, MPI_CHAR, source,
++                      mytag, comm, &status);
+               
+-              if (info == MPI_SUCCESS)
+-                {
+-                  std::stringstream file (imode);
+-                  file.str (std::string (buffer, num));
++          if (info == MPI_SUCCESS)
++            {
++              std::stringstream file (imode);
++              file.str (std::string (buffer, num));
+                   
+-                  // if (read_binary_file_header (file, swap, flt_fmt, true) != 0)
+-                  //   {
+-                  //     info = MPI_ERR_OTHER;
+-                  //     std::cerr << "error decoding data" << std::endl;
+-                  //   }
+-                  // else
+-                    {
+-                      std::string nm = read_binary_data (file, swap, flt_fmt, "",
+-                                                         dummy, retval(0), doc);
+-                      if (nm != "mpi_message")
+-                        std::cerr << "unexpected message name";
+-                    }                
+-                }
++              // if (read_binary_file_header (file, swap, flt_fmt, true) != 0)
++              //   {
++              //     info = MPI_ERR_OTHER;
++              //     std::cerr << "error decoding data" << std::endl;
++              //   }
++              // else
++                {
++                  std::string nm = read_binary_data (file, swap, flt_fmt, "",
++                                                     dummy, retval(0), doc);
++                  if (nm != "mpi_message")
++                    std::cerr << "unexpected message name";
++                }                
++            }
+ 
+-              comm = NULL;
+-              retval(1) = octave_value (info);
++          comm = NULL;
++          retval(1) = octave_value (info);
+ 
+-            }
+-          else
+-            {
+-              error ("Please enter octave comunicator object!");
+-              retval = octave_value (-1);
+-            }
++        }
++      else
++        {
++          error ("Please enter octave comunicator object!");
++          retval = octave_value (-1);
+         }
+     }
+   return retval;
+--- a/src/MPI_Send.cc
++++ b/src/MPI_Send.cc
+@@ -24,9 +24,9 @@
+ #include <oct-map.h>
+ #include <octave/load-save.h>
+ #include <octave/ls-oct-binary.h>
+-using namespace octave;
++//using namespace octave;
+ 
+-static const load_save_format frmt = load_save_system::BINARY;
++static const octave::load_save_format frmt = octave::load_save_system::BINARY;
+ static const octave::mach_info::float_format flt_fmt = octave::mach_info::flt_fmt_unknown;
+ static const bool swap = false;
+ static const std::ios::openmode omode = std::ios::out | std::ios::binary;
+@@ -57,40 +57,38 @@ Return an integer @var{INFO} to indicate
+   else
+     {
+       int mytag = args(2).int_value ();
+-      if (! error_state)
++          
++      if (is_octave_mpi_communicator (args(3)))
+         {
+-          if (is_octave_mpi_communicator (args(3)))
+-            {
+-              MPI_Comm comm = ov_mpi_comm (args(3));
+-              std::stringstream file (omode);
+-              //write_header (file, frmt);
++          MPI_Comm comm = ov_mpi_comm (args(3));
++          std::stringstream file (omode);
++          //write_header (file, frmt);
+ 
+-              if (! save_binary_data (file, args(0),
+-                                      "mpi_message",
+-                                      "", false, false))
+-                { retval = MPI_ERR_OTHER; }
+-              else
+-                {
+-                  // std::cerr << "encoded data :" << file.str () << std::endl;
++          if (! save_binary_data (file, args(0),
++                                  "mpi_message",
++                                  "", false, false))
++            { retval = MPI_ERR_OTHER; }
++          else
++            {
++              // std::cerr << "encoded data :" << file.str () << std::endl;
+                                     
+-                  std::string s = file.str ();
+-                  int num = s.length ();
+-                  Array<int> dest = args(1).int_vector_value ();
+-                  Array<octave_int32> info (dim_vector (dest.numel (), 1));
+-                  for (octave_idx_type iproc = 0; iproc < dest.numel (); ++ iproc)
+-                    info(iproc) = MPI_Send (&(s.c_str ()[0]), num,
+-                                            MPI_CHAR, dest(iproc),
+-                                            mytag, comm); 
+-                  // int rank;
+-                  // MPI_Comm_rank (comm, &rank);
+-                  // std::cerr << "data sent from rank " << rank << " to " << ", info :" << info << std::endl;
+-                  comm = NULL;
+-                  retval = info;
+-                }
++              std::string s = file.str ();
++              int num = s.length ();
++              Array<int> dest = args(1).int_vector_value ();
++              Array<octave_int32> info (dim_vector (dest.numel (), 1));
++              for (octave_idx_type iproc = 0; iproc < dest.numel (); ++ iproc)
++                info(iproc) = MPI_Send (&(s.c_str ()[0]), num,
++                                        MPI_CHAR, dest(iproc),
++                                        mytag, comm); 
++              // int rank;
++              // MPI_Comm_rank (comm, &rank);
++              // std::cerr << "data sent from rank " << rank << " to " << ", info :" << info << std::endl;
++              comm = NULL;
++              retval = info;
+             }
+-          else 
+-            error ("MPI_Send: Please enter octave comunicator object!");
+         }
++      else 
++        error ("MPI_Send: Please enter octave comunicator object!");
+     }
+   return retval;
+ }

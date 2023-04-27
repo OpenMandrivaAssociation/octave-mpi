@@ -1,16 +1,19 @@
-%define octpkg mpi
+%global octpkg mpi
 
-Summary:	Octave bindings for basic MPI functions for parallel computing
-Name:		octave-%{octpkg}
+Summary:	Octave bindings for basic Message Passing Interface (MPI) functions for paralle
+Name:		octave-mpi
 Version:	3.1.0
 Release:	1
-Url:		https://github.com/carlodefalco/octave-%{octpkg}/
-Source0:	%{url}/archive/v%{version}/%{octpkg}-%{version}.tar.gz
-#Patch0:		%{name}-1.2.0-octave-4.1-compatibility.patch
 License:	GPLv3+
 Group:		Sciences/Mathematics
+#Url:		https://packages.octave.org/mpi/
+Url:		https://github.com/carlodefalco/octave-mpi/
+Source0:	https://github.com/carlodefalco/octave-mpi/releases/download/v%{version}/mpi-%{version}.tar.gz
+# https://github.com/carlodefalco/octave-mpi/issues/5
+# https://github.com/carlodefalco/octave-mpi/issues/6
+Patch0:		octave-mpi-3.1.0-octave8.patch
 
-BuildRequires:	octave-devel >= 3.6.4
+BuildRequires:  octave-devel >= 4.4.0
 BuildRequires:	pkgconfig(ompi)
 
 Requires:	octave(api) = %{octave_api}
@@ -19,34 +22,30 @@ Requires(post): octave
 Requires(postun): octave
 
 %description
-Octave bindings for basic Message Passing Interface (MPI) functions for
-parallel computing.
-
-This package is part of community Octave-Forge collection.
+Octave bindings for basic Message Passing Interface (MPI) functions
+for parallel computing.
 
 %files
 %license COPYING
 %doc NEWS
-%dir %{octpkglibdir}
-%{octpkglibdir}/*
 %dir %{octpkgdir}
 %{octpkgdir}/*
+%dir %{octpkglibdir}
+%{octpkglibdir}/*
+#{_metainfodir}/*.metainfo.xml
 
 #---------------------------------------------------------------------------
 
 %prep
-%autosetup -p1 -n octave-%{octpkg}-%{version}
-
-# remove backup files
-#find . -name \*~ -delete
+%autosetup -p1 -n %{octpkg}
 
 %build
+export CPPFLAGS="%{optflags} -I /usr/include/openmpi-%{?_arch}/"
 export MPICC="%{_libdir}/openmpi/bin/mpic++"
 %set_build_flags
 %octave_pkg_build
 
 %install
-#export MPICC="%{_libdir}/openmpi/bin/mpic++"
 %octave_pkg_install
 
 %check
