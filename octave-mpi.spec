@@ -3,7 +3,7 @@
 Summary:	Octave bindings for basic Message Passing Interface (MPI) functions for paralle
 Name:		octave-mpi
 Version:	3.1.0
-Release:	1
+Release:	2
 License:	GPLv3+
 Group:		Sciences/Mathematics
 #Url:		https://packages.octave.org/mpi/
